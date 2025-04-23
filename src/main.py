@@ -7,9 +7,9 @@ app = FastAPI()
 manager = ConnectionManager()
 
 
-@app.head("/health-check")
-async def health_check() -> Response:
-    return Response(content=None, status_code=200)
+@app.get("/healthz")
+async def health_check() -> None:
+    return
 
 
 @app.get("/")
