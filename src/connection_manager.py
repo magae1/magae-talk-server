@@ -1,4 +1,5 @@
 from fastapi import WebSocket
+from fastapi.websockets import WebSocketState
 
 
 class ConnectionManager:
@@ -15,6 +16,16 @@ class ConnectionManager:
     async def send_personal_message(self, message: str, websocket: WebSocket):
         await websocket.send_text(message)
 
+    async def broadcast_except_sender(self, message: str, websocket: WebSocket):
+        for conn in self.active_connections:
+            if conn.application_state is WebSocketState.DISCONNECTED:
+                self.active_connections.remove(conn)
+            elif conn is not websocket:
+                await conn.send_text(message)
+
     async def broadcast(self, message: str):
         for connection in self.active_connections:
-            await connection.send_text(message)
+            if connection.application_state is WebSocketState.DISCONNECTED:
+                self.active_connections.remove(connection)
+            else:
+                await connection.send_text(message)
