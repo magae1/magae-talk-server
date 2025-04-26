@@ -1,7 +1,7 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
-from connection_manager import ConnectionManager
+from managers.connection_manager import ConnectionManager
 from clients.ice_servers_client import IceServersClient
 
 app = FastAPI()

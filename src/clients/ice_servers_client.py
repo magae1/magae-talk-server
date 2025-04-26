@@ -1,7 +1,7 @@
 import json
 from http.client import HTTPSConnection
 
-from src.config import get_settings
+from settings.config import get_settings
 
 
 class IceServersClient:
