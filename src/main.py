@@ -7,7 +7,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from managers.connection_manager import ConnectionManager
 from clients.ice_servers_client import IceServersClient
-from managers.exceptions import ConnIdAlreadyExists, ConnIdNotFound
+from managers.exceptions import ConnIdAlreadyExists
 
 log = logging.getLogger(__name__)
 
@@ -50,8 +50,14 @@ async def websocket_endpoint(websocket: WebSocket):
         log.exception(e)
         return
 
+    log.info(f"Start connecting...{conn_id}")
     retry_count = 0
-    while retry_count < 5:
+    while True:
+        if retry_count >= 5:
+            log.error(f"Connection {conn_id} Failed!")
+            await websocket.close()
+            manager.disconnect(conn_id)
+            return
         try:
             conn_ids = manager.get_conn_ids()
             conn_ids.remove(conn_id)
@@ -59,13 +65,16 @@ async def websocket_endpoint(websocket: WebSocket):
                 {"type": "init", "id": conn_id, "other_ids": conn_ids},
                 conn_id,
             )
-            await asyncio.wait(await websocket.receive_json(), timeout=1)
+            await asyncio.wait_for(websocket.receive_json(), timeout=1)
             break
-        except asyncio.TimeoutError as e:
-            log.exception(e)
+        except WebSocketDisconnect:
+            manager.disconnect(conn_id)
+            return
+        except asyncio.TimeoutError:
             retry_count += 1
+            log.debug(f"retrying...{retry_count}")
 
-    log.debug(f"Connection {conn_id} established!")
+    log.info(f"Connection {conn_id} established!")
     await manager.broadcast(
         {
             "type": "enter",
@@ -79,7 +88,7 @@ async def websocket_endpoint(websocket: WebSocket):
             data: dict = await websocket.receive_json()
             await manager.send_personal_data(data, data["id"])
     except WebSocketDisconnect:
-        await manager.disconnect(conn_id)
+        manager.disconnect(conn_id)
         await manager.broadcast(
             {
                 "type": "leave",

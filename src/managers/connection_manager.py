@@ -2,7 +2,7 @@ from typing import Any
 
 from fastapi import WebSocket
 
-from managers.exceptions import ConnIdNotFound, ConnIdAlreadyExists
+from managers.exceptions import ConnIdAlreadyExists
 from utils.generators import generate_random_digit_char_string
 
 
@@ -26,18 +26,11 @@ class ConnectionManager:
         self.connections.update({conn_id: websocket})
         await websocket.accept()
 
-    async def disconnect(self, conn_id: str):
-        conn: WebSocket | None = self.connections.get(conn_id)
-        if conn is None:
-            return
-        await conn.close()
+    def disconnect(self, conn_id: str):
         self.connections.pop(conn_id)
 
     async def send_personal_data(self, data: Any, conn_id: str):
-        conn: WebSocket | None = self.connections.get(conn_id)
-        if conn is None:
-            raise ConnIdNotFound()
-        await conn.send_json(data)
+        await self.connections.get(conn_id).send_json(data)
 
     async def broadcast_except_sender(self, data: Any, sender_conn_id: str):
         for [conn_id, conn] in self.connections.items():
