@@ -1,31 +1,50 @@
+from typing import Any
+
 from fastapi import WebSocket
-from fastapi.websockets import WebSocketState
+
+from managers.exceptions import ConnIdNotFound, ConnIdAlreadyExists
+from utils.generators import generate_random_digit_char_string
 
 
 class ConnectionManager:
     def __init__(self):
-        self.active_connections: list[WebSocket] = []
+        self.connections: dict[str, WebSocket] = {}
 
-    async def connect(self, websocket: WebSocket):
+    def generate_next_id(self):
+        ids: list[str] = self.get_conn_ids()
+        while True:
+            new_id: str = generate_random_digit_char_string()
+            if new_id not in ids:
+                return new_id
+
+    def get_conn_ids(self):
+        return list(self.connections.keys())
+
+    async def connect(self, conn_id: str, websocket: WebSocket):
+        if conn_id in self.connections.keys():
+            raise ConnIdAlreadyExists()
+        self.connections.update({conn_id: websocket})
         await websocket.accept()
-        self.active_connections.append(websocket)
 
-    def disconnect(self, websocket: WebSocket):
-        self.active_connections.remove(websocket)
+    async def disconnect(self, conn_id: str):
+        conn: WebSocket | None = self.connections.get(conn_id)
+        if conn is None:
+            return
+        await conn.close()
+        self.connections.pop(conn_id)
 
-    async def send_personal_message(self, message: str, websocket: WebSocket):
-        await websocket.send_text(message)
+    async def send_personal_data(self, data: Any, conn_id: str):
+        conn: WebSocket | None = self.connections.get(conn_id)
+        if conn is None:
+            raise ConnIdNotFound()
+        await conn.send_json(data)
 
-    async def broadcast_except_sender(self, message: str, websocket: WebSocket):
-        for conn in self.active_connections:
-            if conn.application_state is WebSocketState.DISCONNECTED:
-                self.active_connections.remove(conn)
-            elif conn is not websocket:
-                await conn.send_text(message)
+    async def broadcast_except_sender(self, data: Any, sender_conn_id: str):
+        for [conn_id, conn] in self.connections.items():
+            if conn_id == sender_conn_id:
+                continue
+            await conn.send_json(data)
 
-    async def broadcast(self, message: str):
-        for connection in self.active_connections:
-            if connection.application_state is WebSocketState.DISCONNECTED:
-                self.active_connections.remove(connection)
-            else:
-                await connection.send_text(message)
+    async def broadcast(self, data: Any):
+        for conn in self.connections.values():
+            await conn.send_json(data)
