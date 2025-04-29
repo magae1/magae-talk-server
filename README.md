@@ -1,1 +1,1 @@
-# magae talk 🗨 server
+# Magae Talk 🗨
