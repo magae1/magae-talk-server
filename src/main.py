@@ -2,8 +2,8 @@ import logging
 import asyncio
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.middleware.cors import CORSMiddleware
-from starlette.middleware.trustedhost import TrustedHostMiddleware
+from starlette.middleware import Middleware
+from starlette.middleware.cors import CORSMiddleware
 
 from managers.connection_manager import ConnectionManager
 from clients.ice_servers_client import IceServersClient
@@ -11,20 +11,21 @@ from managers.exceptions import ConnIdAlreadyExists
 
 log = logging.getLogger(__name__)
 
-app = FastAPI()
 
-
-origins = ["http://localhost:5173", "http://localhost:8000"]
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=False,
-    allow_methods=["GET"],
-    allow_headers=["*"],
-)
-
-hosts = ["localhost", "*.github.io"]
-app.add_middleware(TrustedHostMiddleware, allowed_hosts=hosts)
+middlewares = [
+    Middleware(
+        CORSMiddleware,
+        allow_origins=[
+            "http://localhost:5173",
+            "http://localhost:8000",
+            "https://magae1.github.io",
+        ],
+        allow_credentials=True,
+        allow_methods=["GET"],
+        allow_headers=["*"],
+    )
+]
+app = FastAPI(middleware=middlewares)
 
 
 manager = ConnectionManager()

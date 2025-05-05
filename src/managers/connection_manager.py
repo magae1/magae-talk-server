@@ -1,7 +1,6 @@
 from typing import Any
 
 from fastapi import WebSocket
-from fastapi.websockets import WebSocketState
 
 from managers.exceptions import ConnIdAlreadyExists
 from utils.generators import generate_random_digit_char_string
