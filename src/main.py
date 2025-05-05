@@ -62,7 +62,7 @@ async def websocket_endpoint(websocket: WebSocket):
             conn_ids = manager.get_conn_ids()
             conn_ids.remove(conn_id)
             await manager.send_personal_data(
-                {"type": "init", "id": conn_id, "other_ids": conn_ids},
+                {"type": "init", "id": conn_id, "body": {"other_ids": conn_ids}},
                 conn_id,
             )
             await asyncio.wait_for(websocket.receive_json(), timeout=1)
@@ -79,7 +79,9 @@ async def websocket_endpoint(websocket: WebSocket):
         {
             "type": "enter",
             "id": conn_id,
-            "msg": f"{conn_id}님이 들어왔습니다.",
+            "body": {
+                "msg": f"{conn_id}님이 들어왔습니다.",
+            },
         }
     )
 
@@ -88,11 +90,17 @@ async def websocket_endpoint(websocket: WebSocket):
             data: dict = await websocket.receive_json()
             await manager.send_personal_data(data, data["id"])
     except WebSocketDisconnect:
+        log.info(f"Connection ${conn_id} close")
+    except RuntimeError:
+        log.warning("Unexpected error occurs")
+    finally:
         manager.disconnect(conn_id)
         await manager.broadcast(
             {
                 "type": "leave",
                 "id": conn_id,
-                "msg": f"{conn_id}님이 나갔습니다.",
+                "body": {
+                    "msg": f"{conn_id}님이 나갔습니다.",
+                },
             }
         )
