@@ -9,6 +9,7 @@ DOTENV_PATH = Path(__file__).parent.parent.parent
 class Settings(BaseSettings):
     turn_credential_domain: str = ""
     turn_credential_api_key: str = ""
+    env: str = "dev"
 
     model_config = SettingsConfigDict(env_file=DOTENV_PATH / ".env")
 

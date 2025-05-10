@@ -8,18 +8,21 @@ from starlette.middleware.cors import CORSMiddleware
 from managers.connection_manager import ConnectionManager
 from clients.ice_servers_client import IceServersClient
 from managers.exceptions import ConnIdAlreadyExists
+from settings.config import get_settings
 
 log = logging.getLogger(__name__)
 
 
+origins = (
+    ["https://magae1.github.io"]
+    if get_settings().env == "production"
+    else ["http://localhost:5173", "http://localhost:8000"]
+)
+
 middlewares = [
     Middleware(
         CORSMiddleware,
-        allow_origins=[
-            "http://localhost:5173",
-            "http://localhost:8000",
-            "https://magae1.github.io",
-        ],
+        allow_origins=origins,
         allow_credentials=True,
         allow_methods=["GET"],
         allow_headers=["*"],
