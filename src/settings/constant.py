@@ -1,0 +1,1 @@
+WS_INIT_MAX_RETRY_COUNT: int = 5

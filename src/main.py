@@ -1,5 +1,8 @@
 import logging
 import asyncio
+from datetime import datetime
+
+from pytz import timezone
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from starlette.middleware import Middleware
@@ -9,7 +12,15 @@ from managers.connection_manager import ConnectionManager
 from clients.ice_servers_client import IceServersClient
 from managers.exceptions import ConnIdAlreadyExists
 from settings.config import get_settings
+from settings.constant import WS_INIT_MAX_RETRY_COUNT
 
+tz = timezone("Asia/Seoul")
+logging.basicConfig(
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    level=logging.INFO,
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+logging.Formatter.converter = lambda *args: datetime.now(tz=tz).timetuple()
 log = logging.getLogger(__name__)
 
 
@@ -48,16 +59,16 @@ async def get_ice_servers():
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     conn_id = manager.generate_next_id()
+    log.info(f"Enter connection {conn_id}")
     try:
         await manager.connect(conn_id, websocket)
     except ConnIdAlreadyExists as e:
         log.exception(e)
         return
 
-    log.info(f"Start connecting...{conn_id}")
     retry_count = 0
     while True:
-        if retry_count >= 5:
+        if retry_count >= WS_INIT_MAX_RETRY_COUNT:
             log.error(f"Connection {conn_id} Failed!")
             await websocket.close()
             manager.disconnect(conn_id)
@@ -71,12 +82,17 @@ async def websocket_endpoint(websocket: WebSocket):
             )
             await asyncio.wait_for(websocket.receive_json(), timeout=1)
             break
-        except WebSocketDisconnect:
-            manager.disconnect(conn_id)
-            return
         except asyncio.TimeoutError:
             retry_count += 1
-            log.debug(f"retrying...{retry_count}")
+            log.info(f"Retrying...{retry_count}")
+        except WebSocketDisconnect:
+            log.error(f"Connection {conn_id} disconnected")
+            manager.disconnect(conn_id)
+            return
+        except RuntimeError as e:
+            log.error(e)
+            manager.disconnect(conn_id)
+            return
 
     log.info(f"Connection {conn_id} established!")
     await manager.broadcast(
@@ -94,7 +110,7 @@ async def websocket_endpoint(websocket: WebSocket):
             data: dict = await websocket.receive_json()
             await manager.send_personal_data(data, data["id"])
     except WebSocketDisconnect:
-        log.info(f"Connection ${conn_id} close")
+        log.info(f"Connection ${conn_id} closed")
     except RuntimeError:
         log.warning("Unexpected error occurs")
     finally:
