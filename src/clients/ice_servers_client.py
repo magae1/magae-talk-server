@@ -1,7 +1,11 @@
 import json
+import logging
 from http.client import HTTPSConnection
 
 from settings.config import get_settings
+
+
+log = logging.getLogger(__name__)
 
 
 class IceServersClient:
@@ -17,6 +21,7 @@ class IceServersClient:
             )
             res = conn.getresponse()
             self.ice_servers = json.loads(res.read().decode())
+            log.info("Ice servers information received")
         finally:
             conn.close()
 

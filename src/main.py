@@ -59,17 +59,17 @@ async def get_ice_servers():
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     conn_id = manager.generate_next_id()
-    log.info(f"Enter connection {conn_id}")
     try:
         await manager.connect(conn_id, websocket)
     except ConnIdAlreadyExists as e:
         log.exception(e)
         return
+    log.info(f"Connection [{conn_id}] initiated")
 
     retry_count = 0
     while True:
         if retry_count >= WS_INIT_MAX_RETRY_COUNT:
-            log.error(f"Connection {conn_id} Failed!")
+            log.warning(f"Connection [{conn_id}] failed!")
             await websocket.close()
             manager.disconnect(conn_id)
             return
@@ -84,17 +84,17 @@ async def websocket_endpoint(websocket: WebSocket):
             break
         except asyncio.TimeoutError:
             retry_count += 1
-            log.info(f"Retrying...{retry_count}")
+            log.info(f"Retrying...{retry_count}...[{conn_id}]")
         except WebSocketDisconnect:
-            log.error(f"Connection {conn_id} disconnected")
+            log.warning(f"Connection [{conn_id}] unexpectedly disconnected")
             manager.disconnect(conn_id)
             return
         except RuntimeError as e:
-            log.error(e)
+            log.exception(e)
             manager.disconnect(conn_id)
             return
 
-    log.info(f"Connection {conn_id} established!")
+    log.info(f"Connection [{conn_id}] established")
     await manager.broadcast(
         {
             "type": "enter",
@@ -108,11 +108,12 @@ async def websocket_endpoint(websocket: WebSocket):
     try:
         while True:
             data: dict = await websocket.receive_json()
+            log.info(f"Message [{data["type"]}] is received")
             await manager.send_personal_data(data, data["id"])
     except WebSocketDisconnect:
-        log.info(f"Connection ${conn_id} closed")
-    except RuntimeError:
-        log.warning("Unexpected error occurs")
+        log.info(f"Connection [{conn_id}] closed")
+    except RuntimeError as e:
+        log.exception(e)
     finally:
         manager.disconnect(conn_id)
         await manager.broadcast(
