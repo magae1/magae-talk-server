@@ -15,11 +15,7 @@ from settings.config import get_settings
 from settings.constant import WS_INIT_MAX_RETRY_COUNT
 
 tz = timezone("Asia/Seoul")
-logging.basicConfig(
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    level=logging.INFO,
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
+logging.basicConfig(format="[%(levelname)s] %(message)s", level=logging.INFO)
 logging.Formatter.converter = lambda *args: datetime.now(tz=tz).timetuple()
 log = logging.getLogger(__name__)
 
